@@ -1,7 +1,7 @@
 import socket
 import sys
 
-HOST, PORT = "192.168.1.77", 3000
+HOST, PORT = "0.0.0.0", 3000
 
 # SOCK_DGRAM is the socket type to use for UDP sockets
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
