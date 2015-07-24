@@ -1,7 +1,7 @@
 local socket = require "socket"
-local address, port = "54.69.253.54", 3000
+local address, port = "localhost", 3000
 local utf8 = require "utf8"
-local background, messages, font, text, data, msg, sent, chatroom_connection, awaiting_response, ping_timer
+local background, messages, font, text, data, msg, sent, chatroom_connection, awaiting_response, ping_timer, username_set, username_sent
 
  function love.load()
  	love.window.setMode(639,379)
@@ -12,8 +12,8 @@ local background, messages, font, text, data, msg, sent, chatroom_connection, aw
 	udp = socket.udp()
 	udp:settimeout(0)
 	udp:setpeername(address, port)
-	udp:send("!n")
-	udp:send("?u")
+	udp:send("::join")
+	udp:send("::users")
 
 	font = love.graphics.newFont(18)
 	text = ""
@@ -21,6 +21,8 @@ local background, messages, font, text, data, msg, sent, chatroom_connection, aw
 	ping_timer = love.timer.getTime()
 	chatroom_connection = true
 	awaiting_response = false
+	username_set = false
+	username_sent = false
 end
 
 function love.update(dt)
@@ -29,8 +31,11 @@ function love.update(dt)
 	if data then
 		awaiting_response = false
 		chatroom_connection = true
+		if username_sent then
+			username_set = true
+		end
 		ping_timer = love.timer.getTime()
-		if data ~= "?p" then
+		if data ~= "::ping" then
 			if table.getn(messages) > 7 then
 				table.remove(messages,1)
 			end
@@ -39,16 +44,10 @@ function love.update(dt)
 	end
 	-- Ping server every 2 seconds to check if there is a connection
 	if (love.timer.getTime()-ping_timer) > 2 then
-		udp:send("?p")
+		udp:send("::ping")
 		ping_timer = love.timer.getTime()
 		if awaiting_response then
 			chatroom_connection = false
-			--> Attempt to reconnect to chat room
-			udp = socket.udp()
-			udp:settimeout(0)
-			udp:setpeername(address, port)
-			udp:send("!n")
-			udp:send("?u")
 		end
 		awaiting_response = true
 	end
@@ -67,10 +66,15 @@ function love.draw(dt)
 	end
 	if chatroom_connection == false then
 		love.graphics.setColor(255, 50, 50)
-		love.graphics.print("Unable to establish connection...",8, 270)
+		love.graphics.print("Unable to establish connection. Restart the client and try again.",8, 270)
 	end
 	love.graphics.setColor(102, 255, 51, 210)
-	love.graphics.print(text,8,300)
+	if username_set == false then
+		love.graphics.print("Choose a nickname:  ",8,300)
+	else
+		love.graphics.print("Enter your message: ",8,300)
+	end
+	love.graphics.print(text,196,300)
 	love.graphics.setColor(255,255,255)
 end
 
@@ -90,12 +94,19 @@ function love.keypressed(key)
         end
     end
     if key == "return" then
-    	udp:send("!m:" .. text)
-    	text = ""
+    	if username_set == false then
+    		udp:send("::username" .. text)
+    		username_sent = true
+    	else
+    		udp:send("::message" .. text)
+    	end
+    	if chatroom_connection then
+    		text = ""
+    	end
     end
 end
 
 
 function love.quit()
-	udp:send("!q")
+	udp:send("::leave")
 end
