@@ -1,4 +1,6 @@
 import SocketServer
+import time
+
 HOST, PORT = "localhost", 3000
 DEBUG = True
 
@@ -10,7 +12,20 @@ class ServerHandler:
 
     def __init__(self):
         self.usernames = {}
+        self.last_pings = {}
         self.clients = []
+        self.timer = time.time()
+
+    def check_for_timeouts(self):
+        # Time out users if client hasn't pinged in 10 seconds
+        for client,ping_time in self.last_pings.items():
+            if DEBUG:
+                print(time.time()-ping_time)
+            if time.time()-ping_time > 10:
+                if DEBUG:
+                    print("Timed out user " + client)
+                self.remove_client(eval(client))
+                
 
     def new_client(self,client):
         self.clients.append(client)
@@ -20,7 +35,10 @@ class ServerHandler:
 
     def remove_client(self,client):
         self.clients.remove(client)
-        del self.usernames[str(client)]
+        if str(client) in self.usernames.keys():
+            del self.usernames[str(client)]
+        if str(client) in self.last_pings.keys():
+            del self.last_pings[str(client)]
         if DEBUG:
             print "User {} disconnected.".format(client)
 
@@ -29,6 +47,15 @@ class ServerHandler:
             socket.sendto(str(self.usernames[str(sent_from)]) + ": " + message[9:], client)
 
     def get_client_data(self,client,socket,data):
+
+        # Check for timeouts
+        if time.time()-self.timer > 10:
+            if DEBUG:
+                print("Checking",len(self.clients),"active clients for timeouts.. ")
+                print("Current clients:",self.clients)
+            self.check_for_timeouts()
+            self.timer = time.time()
+            
 
         # Handle unestablished clients
         if client not in self.clients and data != "::join":
@@ -52,6 +79,7 @@ class ServerHandler:
         # Send ping back to client
         elif data == "::ping":
             socket.sendto("::ping", client)
+            self.last_pings[str(client)] = time.time()
 
         elif data[:10] == "::username":
             if len(data) > 10:
