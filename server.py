@@ -24,7 +24,11 @@ class MyUDPHandler(SocketServer.BaseRequestHandler):
         if self.client_address in USERS and data[:2] == "!q":
             USERS.remove(self.client_address)
             print "Current users: {}".format(USERS)
-            
+        
+        # Respond to client ping
+        if data[:2] == "?p":
+            socket.sendto("?p",self.client_address)
+                
         # Request number of users in chat room
         if data[:2] == "?u":
             if (len(USERS)-1) == 1:
